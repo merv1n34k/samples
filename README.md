@@ -12,9 +12,9 @@ The file `sample.Rmd` can be *knitted* into PDF in RStudio, all prerequisites ar
 
 As this notebook contains Cyrillic's letters, PDF file was compiled manually for proper letters render. To create a PDF file yourself, `lualatex` is required.
 
-Steps to reproduce:
+Steps to reproduce (first 2 step are optional):
 
-1. Export Latex document from `sample.ipynb` with Jupyter lab. (optional)
+1. Export notebook to LaTeX document with Jupyter lab --> unzip archive. (optional)
 2. In exported `sample.tex` file add the following line after documentclass tag (optional):
 ```latex
 \usepackage{header.tex}
@@ -24,7 +24,7 @@ Steps to reproduce:
     $ mkdir tmp
     $ lualatex --output-directory=tmp sample.tex
 ```
-The PDF file in `tmp` directory was generated.
+The PDF file in `tmp` directory should be generated.
 
 
 ## License
