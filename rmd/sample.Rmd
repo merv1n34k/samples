@@ -1,0 +1,189 @@
+---
+title: "КОМП’ЮТЕРНИЙ ПРАКТИКУМ No2"
+author: "Oleksii Stroganov"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: lualatex
+    includes:
+      in_header: header.tex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Мета роботи:
+
+Навчитися виконувати статистичну обробку при незначних
+вибірках значень експериментальних даних.
+
+## Необхідні умови
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+## Створюємо таблицю стандартних значень критеріїв для зручності
+
+```{r}
+# Use data.frame with standard values
+standards <- data.frame(
+  n = c(3:8),
+  Q = c(0.970,0.829,0.710,0.625,0.568,0.526),
+  beta = c(1.153,1.463,1.672,1.822,1.938,2.032),
+  q = c(4.96,3.56,3.040,2.78,2.62,2.51),
+  t = c(3.18,2.78,2.57,2.45,2.37,2.31)
+)
+tibble(standards)
+```
+
+## Створюємо фунцкцію `do_tests` 
+
+Дана функція використовується з метою упросити розрахунки та оцінку елементів вибірки на грубі похибки. Функція приймає 2 аргумента:
+
+* `df` - дані, для який виконуються розрахунки
+* `ph_sus` - значення елементу, яке потрібно оцінити
+
+Функцію включає в себе проведення очислень, необхідних для оцінки елемента `ph_sus` за Q-критеріем, критеріем Грабса та Романівського.
+
+На виході функція виводить результат оцінки за наведеними критеріями, де значення `FAIL` вказує на грубу похибку, `PASS` вказує, що похибка є допустимою.
+
+```{r}
+# Use function to simplify the calculations
+do_tests <- function(df, ph_sus) {
+  # Set values from standards
+  standards <- standards |> 
+    filter(n == length(df$ph))
+  
+  Q_std <- standards[2]
+  beta_std <- standards[3]
+  q_std <- standards[4]
+  
+  # Calculate sd of ph without ph_sus
+  ph_sd_star <- df |>
+    filter(ph != ph_sus) |>
+    pull(ph) |>
+    sd()
+  
+  # Calculate avg, sd, and var for df
+  ph_avg <- mean(df$ph)
+  ph_sd <- sd(df$ph)
+  ph_var <- ph_sd^2
+  
+  # Sort df
+  df_sorted <- df |>
+    arrange(ph)
+  
+  # Select close value for ph_sus from df
+  ph_close <- ifelse(min(df$ph) == ph_sus,
+                     df_sorted$ph[which(df_sorted$ph == ph_sus) + 1],
+                     df_sorted$ph[which(df_sorted$ph == ph_sus) - 1]
+  )
+  
+  # Calculate values for Q, Grubbs, and Rom using ph_sus
+  Q_sus <- abs((ph_sus - ph_close) / (max(df_sorted$ph) - min(df_sorted$ph)))
+  beta_sus <- abs((ph_sus - ph_avg) / ph_sd)
+  x_edge <- ph_sd_star * q_std
+  d_err <- abs(ph_sus - ph_avg)
+  
+  # Test ph_sus for Q, Grubbs, and Rom tests
+  test_result <- c(
+    ifelse(Q_sus > Q_std, "FAIL", "PASS"),
+    ifelse(beta_sus > beta_std, "FAIL", "PASS"),
+    ifelse(d_err > x_edge, "FAIL", "PASS")
+  )
+  
+  print(paste0(
+    "Tests: Q: ",test_result[1],
+    "; Grubbs: ", test_result[2],
+    "; Rom: ", test_result[3]))
+}
+```
+
+## Оцінка елементів вибірки
+
+### Використовуємо вибірку 23 варіанта 
+
+```{r}
+df_1 <- data.frame(ph = c(7.88, 7.86, 7.91, 7.89, 7.91, 7.88, 7.78, 7.53))
+```
+
+Спершу перевіряємо найменше значення вибірки - *pH = 7.53*.
+
+```{r}
+ph_sus_1 <- 7.53
+# First test (all tests failed)
+do_tests(df_1, ph_sus_1)
+```
+
+Як можна побачити всі три оцінки дали резульатат `FAIL`, отже: 
+
+**$$pH = 7.53 - \text{Груба похибка}$$**
+
+Наступним перевіряємо значення *pH = 7.78*.
+
+```{r}
+df_2 <- df_1 |> filter(ph != ph_sus_1)
+ph_sus_2 <- 7.78
+# Second test (all tests failed)
+do_tests(df_2,ph_sus_2)
+```
+
+Як і в попренедньому результаті похибка виявилась грубою: 
+
+**$$pH = 7.78 - \text{Груба похибка}$$**
+
+Перевіряємо *pH = 7.53*
+
+```{r}
+df_3 <- df_2 |> filter(ph != ph_sus_2)
+ph_sus_3 <- 7.86
+# Third test (all tests passed)
+do_tests(df_3,ph_sus_3)
+```
+
+В цей раз елемент пройшов всі крітерії, тому:
+
+**$$pH = 7.86 - \text{Допустима похибка}$$**
+
+Перевіряємо *pH = 7.91*
+
+```{r}
+df_4 <- df_3
+ph_sus_4 <- 7.91
+# Second test (all tests passed)
+do_tests(df_4,ph_sus_4)
+```
+
+І в цей раз елемент пройшов всі крітерії, отже:
+
+**$$pH = 7.91 - \text{Допустима похибка}$$**
+
+## Визначення довірчого інтервала
+
+```{r}
+# Select the ph from last data.frame
+ph <- df_4$ph
+
+# Calculation to get delta_x
+ph_sd <- sd(ph)
+ph_avg <- mean(ph)
+ph_s_x <- ph_sd / sqrt(length(ph))
+# Pull the students t coefficient from standards
+t <- standards |> 
+  filter(n == (length(ph) - 1)) |> 
+  pull(t)
+delta_x <- ph_s_x * t
+delta_x
+```
+
+# Остаточний результат
+
+Останнім записуємо середнье значення pH з врахуванням тільки допустимих похибок та довірчого інтервалу:
+
+```{r}
+print(paste0("pH = ",round(ph_avg,2),"±",round(delta_x,2)))
+```
+
+$$pH = 7.89\pm0.02$$
