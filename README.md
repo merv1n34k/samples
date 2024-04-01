@@ -29,4 +29,8 @@ The PDF file in `tmp` directory should be generated.
 
 ## License
 
-Distributed under MIT License, see LICENSE
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Contribution
+
+Feel free to open an issue. PRs are also appreciated.
